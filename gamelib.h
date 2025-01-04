@@ -2,7 +2,7 @@
 
 /****************************************************
  * gamelib.h | Intestazione della libreria di gioco *
- **************************************************+*/
+ ****************************************************/
 
 /*
  *   TIPI DI DATO
@@ -143,6 +143,8 @@ typedef struct giocatore {
     bool turnoBloccato;
 	numero cercataSegreta;
 	bool inVita;
+	bool turnoPassato;
+	char azioniConcesse[9];
 } Giocatore;
 
 /*

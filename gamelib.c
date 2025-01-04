@@ -257,6 +257,7 @@ static bool conferma(const char* messaggio) {
 	coloreCmd(COLORE_STD);
 	char c = ' ';
 	if (charInput(&c, "snSN") == errore) return false;
+    if(c == 'n' || c == 'N') logAvviso("Operazione annullata.");
 	return c == 's' || c == 'S';
 }
 
@@ -532,13 +533,13 @@ static void stanzaRandom(Stanza* posizione, bool isSegreta) {
     Direzione dir = init;
 
     bool dirValida = false;
-    for (numero i = 0; i < 4; i++) {
-        if (dirValida) break;
-        switch (i) {
-            case 0: if (!IS_P_VALIDO(posizione->stDestra)) dirValida = true; dir = destra; break;
-            case 1: if (!IS_P_VALIDO(posizione->stSinistra)) dirValida = true; dir = sinistra; break;
-            case 2: if (!IS_P_VALIDO(posizione->stSopra)) dirValida = true; dir = sopra; break;
-            case 3: if (!IS_P_VALIDO(posizione->stSotto)) dirValida = true; dir = sotto; break;
+    while (!dirValida) {
+        numero posizioneRandom = RAND(0, 3);
+        switch (posizioneRandom) {
+            case 0: if (!IS_P_VALIDO(posizione->stDestra)) { dirValida = true; dir = destra; } break;
+            case 1: if (!IS_P_VALIDO(posizione->stSinistra)) { dirValida = true; dir = sinistra; } break;
+            case 2: if (!IS_P_VALIDO(posizione->stSopra)) { dirValida = true; dir = sopra; } break;
+            case 3: if (!IS_P_VALIDO(posizione->stSotto)) { dirValida = true; dir = sotto; } break;
         }
     }
 
@@ -575,6 +576,7 @@ static void cercaStanzaSegreta(Giocatore* pGiocatore) {
 	} 
 
 	pGiocatore->cercataSegreta++;
+    pGiocatore->turnoPassato = false;
 
 	numero prob = RAND(0, 100);
 	if ((pGiocatore->cercataSegreta == 1 && prob <= 33) ||
@@ -602,6 +604,7 @@ static void cercaStanzaSegreta(Giocatore* pGiocatore) {
         do {
             printf("Seleziona una delle seguenti "); coloreCmd(COLORE_H); printf("azioni"); coloreCmd(COLORE_STD); printf(":\n");
             stampaOpzioni(pGiocatore, opzioni);
+            strcpy(pGiocatore->azioniConcesse, opzioni);
 
             if (charInput(&scelta, opzioni) == errore) {
                 logErrore("Valore non valido. Riprova.\n");
@@ -735,6 +738,7 @@ static void resetMappa() {
 	SAFE_FREE(primaStanza);
 	
 	Stanza* sInit = (Stanza*) malloc(sizeof(Stanza));
+    if(!jaffarSconfitto) {
         if (!IS_P_VALIDO(sInit)) {
             logErrore("Errore di allocazione in memoria.");
             terminaGioco();
@@ -755,6 +759,7 @@ static void resetMappa() {
             sInit->nemico = nessunNemico;
             ultimaStanza = primaStanza;
         }
+    }
 }
 
 /**
@@ -952,6 +957,7 @@ static Giocatore* creaGiocatore(const char* nome, ClasseGiocatore classe, Stanza
     pGiocatore->turnoBloccato = 0;
     pGiocatore->cercataSegreta = 0;
     pGiocatore->inVita = true;
+    pGiocatore->turnoPassato = true;
     
     return pGiocatore;
 }
@@ -1064,8 +1070,8 @@ static void dettagliGiocatore(Giocatore *pGiocatore) {
 	printf("- Punti vita : %d su %d\n", pGiocatore->pVita, pGiocatore->pVitaMax);
 	printf("- Dadi attacco: %d\n", pGiocatore->dadiAttacco);
 	printf("- Dadi difesa: %d\n", pGiocatore->dadiDifesa);
-	printf("- Ha già avanzato: %s\n", BOOL_TEXT(pGiocatore->avanzato));
-    printf("- Ha cercato la stanza segreta: %s (%d volte)\n", BOOL_TEXT(pGiocatore->cercataSegreta > 0), pGiocatore->cercataSegreta);
+	printf("- Può avanzare: %s\n", BOOL_TEXT(!pGiocatore->avanzato));
+    printf("- Può cercare stanze segrete: %s\n", BOOL_TEXT(pGiocatore->cercataSegreta == 0));
 }
 
 /**
@@ -1076,7 +1082,10 @@ static void dettagliGiocatore(Giocatore *pGiocatore) {
 static void aumentaVita(Giocatore *pGiocatore, numero punti) {
     if (IS_P_VALIDO(pGiocatore)) {
         pGiocatore->pVita += punti;
-        if (pGiocatore->pVita > pGiocatore->pVitaMax) pGiocatore->pVita = pGiocatore->pVitaMax;
+        if (pGiocatore->pVita > pGiocatore->pVitaMax) {
+            pGiocatore->pVita = pGiocatore->pVitaMax;
+            logAvviso("Punti vita massimi raggiunti. Non è possibile aumentarli ulteriormente.");
+        } 
     }
 }
 
@@ -1269,6 +1278,7 @@ static void avanza(Giocatore *pGiocatore, bool segreta) {
             }
             coloreCmd(COLORE_STD);
 			pGiocatore->avanzato = true;
+            pGiocatore->turnoPassato = false;
             trabocchetto(pGiocatore);
 
             if (pGiocatore->pVita == 0) return;
@@ -1308,12 +1318,12 @@ static void stampaOpzioni(Giocatore* pGiocatore, char* azioni) {
 			printf(" ["); coloreCmd(COLORE_H); printf("X"); coloreCmd(COLORE_STD); printf("] Abbandona partita\n");
 
             // Il giocatore può avanzare se: (1) c'è una stanza disponibile, (2) non è già avanzato e (3) non ha già cercato la stanza segreta         
-			if (IS_P_VALIDO(nextStanza(pGiocatore->posizione, false)) && !pGiocatore->avanzato && (pGiocatore->cercataSegreta == 0 || pGiocatore->cercataSegreta == 4)) {
+			if (IS_P_VALIDO(nextStanza(pGiocatore->posizione, false)) && !pGiocatore->avanzato && (pGiocatore->cercataSegreta == 0 || pGiocatore->turnoPassato)) {
 				azioni[opz++] = 'A';
 				printf(" ["); coloreCmd(COLORE_H); printf("A"); coloreCmd(COLORE_STD); printf("] Avanza\n");
 			}  
                 
-			if (pGiocatore->posizione != ultimaStanza && pGiocatore->posizione != primaStanza && !pGiocatore->avanzato && pGiocatore->cercataSegreta < 3) {
+			if (pGiocatore->posizione != ultimaStanza && pGiocatore->posizione != primaStanza && (!pGiocatore->avanzato || pGiocatore->turnoPassato )) {
 				azioni[opz++] = 'S';
 				printf(" ["); coloreCmd(COLORE_H); printf("S"); coloreCmd(COLORE_STD); printf("] Cerca stanza segreta\n");
 			}
@@ -1341,7 +1351,9 @@ static void stampaOpzioni(Giocatore* pGiocatore, char* azioni) {
 }
 
 /**
- * Fornisce un suggerimento al giocatore passato come parametro in base alla stanza in cui si trova, la sua salute, la presenza di un nemico e la sua forza, la presenza di un tesoro e la presenza di altri giocatori (avversari).
+ * Fornisce un suggerimento al giocatore passato come parametro in base alla stanza in cui si trova,
+ * la sua salute, la presenza di un nemico e la sua forza, la presenza di un tesoro e di altri giocatori (avversari).
+ * Inoltre, valuta lo stato delle azioni disponibili.
  * @param pGiocatore Giocatore a cui fornire il suggerimento
  */
 static void aiuto(Giocatore *pGiocatore) {
@@ -1353,7 +1365,32 @@ static void aiuto(Giocatore *pGiocatore) {
     Stanza *stanza = pGiocatore->posizione;
     Nemico *nemico = stanza->nemico;
 
-    if(IS_P_VALIDO(nemico) && nemico->tipo != nessunNemico) {
+    // Controlli sulle azioni permesse
+    bool azioneAvanzaPresente = false;
+    bool azioneCercaPresente = false;
+    int conteggioAzioni = 0;
+
+    for (int i = 0; i < 8; i++) {
+        if (pGiocatore->azioniConcesse[i] != '\0') {
+            conteggioAzioni++;
+            if (pGiocatore->azioniConcesse[i] == 'A') azioneAvanzaPresente = true;
+            if (pGiocatore->azioniConcesse[i] == 'S') azioneCercaPresente = true;
+        }
+    }
+
+    int controlloCasuale = RAND(0, 2);
+    bool contestoStd = !IS_P_VALIDO(nemico) || nemico->tipo == nessunNemico;
+
+    if (controlloCasuale == 0 && !azioneAvanzaPresente && contestoStd) {
+        logNota("Non puoi avanzare ulteriormente in questo turno. Riconsidera i tuoi passi.");
+    } else if (controlloCasuale == 1 && !azioneCercaPresente && contestoStd) {
+        logNota("Hai forse cercato fin troppi segreti qui? O è tempo di avanzare?");
+    } else if (controlloCasuale == 2 && conteggioAzioni < 8 && contestoStd) {
+        logNota("Ti senti limitato nelle tue mosse? Usa 'P' per fermarti e riflettere.");
+    }
+
+    // Controlli basati sul contesto
+    if (IS_P_VALIDO(nemico) && nemico->tipo != nessunNemico) {
         switch (nemico->tipo) {
             case scheletro:
                 if (pGiocatore->pVita < nemico->pVita) {
@@ -1702,6 +1739,7 @@ static void combatti(Giocatore *pGiocatore) {
             logErrore(" [!] Sei stato sconfitto...");
         } else if (tipoNemico == Jaffar) {
             vittoria(pGiocatore);
+            jaffarSconfitto = true;
         } else {
             logSuccesso(" [!] Hai sconfitto il nemico! Guadagni 1 punto vita.");
             aumentaVita(pGiocatore, 1);
@@ -1911,6 +1949,7 @@ extern void impostaGioco() {
     numero scelta = nessunaImp;
     
     // reset e inizializzazione della prima stanza
+    jaffarSconfitto = false;
     resetMappa();
     
     do {
@@ -1986,7 +2025,7 @@ extern void gioca() {
         	if(IS_P_VALIDO(giocatori[i]) && giocatori[i]->pVita > 0 && giocatori[i]->turnoBloccato == false) {
                 
 				numero salute = (numero)((giocatori[i]->pVita / giocatori[i]->pVitaMax) * 100);
-				printf("E' il turno di "); coloreCmd(COLORE_H); printf("%s", giocatori[i]->nome); coloreCmd(COLORE_STD); printf("!\n\n");
+				printf("È il turno di "); coloreCmd(COLORE_H); printf("%s", giocatori[i]->nome); coloreCmd(COLORE_STD); printf("!\n\n");
         		printf("- Stato: ");
 	            switch (salute) {
     				case 0 ... 50:
@@ -2015,6 +2054,7 @@ extern void gioca() {
                 while (IS_P_VALIDO(giocatori[i]) && giocatori[i]->pVita >= MIN_PVITA && azione != 'P') {
                     printf("\nSeleziona una delle seguenti "); coloreCmd(COLORE_H); printf("azioni"); coloreCmd(COLORE_STD); printf(":\n");
                     stampaOpzioni(giocatori[i], opzioni);
+                    strcpy(giocatori[i]->azioniConcesse, opzioni);
 
                     if (charInput(&azione, opzioni) == errore) {
                         logErrore("Valore non valido. Riprova.");
@@ -2028,8 +2068,8 @@ extern void gioca() {
                             break;
                     
                             case 'C':
-                                combatti(giocatori[i]);
                                 giocatori[i]->cercataSegreta = 0;
+                                combatti(giocatori[i]);
                             break;
                     
                             case 'F':
@@ -2069,10 +2109,10 @@ extern void gioca() {
                         }
                     }
                 }
+
+                giocatori[i]->turnoPassato = true;
                         
 	            if (IS_P_VALIDO(giocatori[i]) && giocatori[i]->pVita == 0) morte(giocatori[i]);
-
-                if (IS_P_VALIDO(giocatori[i]) && giocatori[i]->cercataSegreta == 3) giocatori[i]->cercataSegreta = 4;
 
 	            logSpicy("---------------------------------------------------------------------------------");
             } else if (IS_P_VALIDO(giocatori[i]) && giocatori[i]->turnoBloccato == true) {
@@ -2080,9 +2120,9 @@ extern void gioca() {
             }
         }
     }
-    
+
     giocoAvviato = false;
-    sconfitta();
+    if(!jaffarSconfitto) sconfitta();
 }
 
 extern void terminaGioco() {
@@ -2091,6 +2131,7 @@ extern void terminaGioco() {
     check_giocatori = false;
     resetMappa();
     check_mappa = false;
+    SAFE_FREE(primaStanza);
     logSpicy("---------------------------------------------------------------------------------");
     logSpicy("                Grazie per aver giocato a Prince Of Inertia!");
     logSpicy("---------------------------------------------------------------------------------");

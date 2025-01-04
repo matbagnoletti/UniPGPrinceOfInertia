@@ -15,9 +15,7 @@ int main() {
 	
 	logNota("Per una esperienza di gioco migliore, ingrandisci il terminale.\n");
 	logNota("Si può giocare singolarmente o in gruppo (max 3 giocatori).");
-	logNota("Avvisi di colore ROSSO indicano situazioni di pericolo o errori.");
-	logNota("Avvisi di colore GIALLO indicano situazioni di attenzione o avvisi.");
-	logNota("Avvisi di colore VERDE indicano situazioni di successo o conferme.\n");
+	logNota("Se ti trovi in difficoltà puoi sempre chiedere aiuto con il comando 'H' ;)\n");
 	
 	logAvviso(" Buon divertimento!\n\n");
   	attendiUtente();

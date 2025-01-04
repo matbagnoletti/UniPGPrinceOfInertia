@@ -29,10 +29,10 @@ gcc -v
 
 ## Richiesta dell'esercizio
 Realizzare un programma in C che simuli il comportamento dell'originale videogioco [Prince of Persia](https://it.wikipedia.org/wiki/Prince_of_Persia) permettendo ad uno o più giocatori di fuggire dal castello di Jaffar e raggiungere l'amata principessa.
-Per una visione più approfondita del testo e delle richieste del progetto, consultare il [seguente link](Phttps://francescosantini.sites.dmi.unipg.it/esami/progetto2425.pdf).
+Per una visione più approfondita del testo e delle richieste del progetto, consultare il [seguente link](https://francescosantini.sites.dmi.unipg.it/esami/progetto2425.pdf).
 
 ## Specifiche
-1. Il programma, per quanto concerne l'output di messaggi a video per l'utente, fa uso dei [colori ANSI](https://www.perpetualpc.net/6429_colors.html#color_list) per rendere più chiara la distinzione tra le varie tipologie di messaggi. Nel caso in cui il proprio terminale non visualizzi correttamente tali colori, è solitamente possibile modificare le preferenze della shell.
+1. Il programma fa uso dei colori [colori ANSI](https://www.perpetualpc.net/6429_colors.html#color_list) per rendere più chiara la distinzione tra le varie tipologie di messaggi in output. Nel caso in cui il proprio terminale non visualizzi correttamente tali colori, è solitamente possibile modificare le preferenze della shell.
 *Per gli utenti esperti, è possibile modificare i colori di output direttamente nel codice sorgente, modificando i valori delle costanti (`const char* const COLORE_*`) definite in `gamelib.h`*.
 In particolare, i colori utilizzati sono:
    - <span style="color:rgb(233, 57, 57)">ROSSO</span> per i messaggi di errore
@@ -66,7 +66,7 @@ In particolare, i colori utilizzati sono:
    ```
    range expressions in switch statements are non-standard [-Wpedantic]
    ```
-   Questo tipo di costrutto permette di eseguire un blocco di codice per un intervallo di valori. E' supportato da gcc ma, nel caso in cui si utilizzasse un compilatore differente, è opportuno verificarne la compatibilità.
+   Questo tipo di costrutto permette di eseguire un blocco di codice per un intervallo di valori. È supportato da gcc ma, nel caso in cui si utilizzasse un compilatore differente, è opportuno verificarne la compatibilità.
 
 ## Installazione e utilizzo
 Per poter utilizzare il programma, è necessario seguire i seguenti passaggi:
