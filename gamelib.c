@@ -1070,8 +1070,8 @@ static void dettagliGiocatore(Giocatore *pGiocatore) {
 	printf("- Punti vita : %d su %d\n", pGiocatore->pVita, pGiocatore->pVitaMax);
 	printf("- Dadi attacco: %d\n", pGiocatore->dadiAttacco);
 	printf("- Dadi difesa: %d\n", pGiocatore->dadiDifesa);
-	printf("- Può avanzare: %s\n", BOOL_TEXT(!pGiocatore->avanzato));
-    printf("- Può cercare stanze segrete: %s\n", BOOL_TEXT(pGiocatore->cercataSegreta == 0));
+	printf("- Può avanzare: %s\n", BOOL_TEXT(IS_P_VALIDO(nextStanza(pGiocatore->posizione, false)) && !pGiocatore->avanzato && (pGiocatore->cercataSegreta == 0 || pGiocatore->turnoPassato)));
+    printf("- Può cercare stanze segrete: %s\n", BOOL_TEXT(pGiocatore->posizione != ultimaStanza && pGiocatore->posizione != primaStanza && (!pGiocatore->avanzato || pGiocatore->turnoPassato)));
 }
 
 /**
@@ -1553,6 +1553,26 @@ static void infoCombattimento(Giocatore* pGiocatore) {
     }
 }
 
+static void dadiCombattimento(numero* riferimento) {
+    numero random = LANCIA_DADO();
+    printf(" [*] È uscito %d: ", random);
+    switch (random) {
+        case 0 ... 3:
+            printf("un dado sprecato!\n");
+        break;
+        
+        case 4 ... 5:
+            printf("il lancio ha avuto successo\n");
+            (*riferimento)++;
+        break;
+        
+        case 6:
+            printf("lancio critico!\n");
+            (*riferimento) += 2;
+        break;
+    }
+}
+
 /**
 * Simula un turno di combattimento tra un attaccante e un difensore
 * @param pGiocatore Giocatore che attacca o si difende
@@ -1561,7 +1581,7 @@ static void infoCombattimento(Giocatore* pGiocatore) {
 static void eseguiTurno(Giocatore* pGiocatore, bool attaccante) {
     if (!IS_P_VALIDO(pGiocatore) || !IS_P_VALIDO(pGiocatore->posizione) || !IS_P_VALIDO(pGiocatore->posizione->nemico)) return;
 
-    numero danniTotali = 0, difesaTotale = 0, danniNetti = 0, random = 0;
+    numero danniTotali = 0, difesaTotale = 0, danniNetti = 0;
     Nemico* pNemico = pGiocatore->posizione->nemico;
 
     if (attaccante) {
@@ -1570,51 +1590,28 @@ static void eseguiTurno(Giocatore* pGiocatore, bool attaccante) {
 	        printf("\n [!] Lancia il %d dado (su %d disponibili) e attacca... [Premi INVIO]", i+1, pGiocatore->dadiAttacco);
             coloreCmd(COLORE_STD);
             getchar();
-            random = LANCIA_DADO();
-            switch (random) {
-            	case 0 ... 3:
-                	printf(" [*] Hai provato ad attaccare, ma il dado ha deciso diversamente (è uscito %d)\n", random);
-                break;
-                
-                case 4 ... 5:
-                  	printf(" [*] Hai attaccato con successo! (è uscito %d)\n", random);
-                    danniTotali++;
-                break;
-                
-                case 6:
-                    printf(" [*] Hai sferrato un colpo critico! (è uscito %d)\n", random);
-                    danniTotali += 2;
-                break;
-            }
+            
+            dadiCombattimento(&danniTotali);
         }
         
         // Calcolo della difesa
         for (numero i = 0; i < pNemico->dadiDifesa; i++) {
             coloreCmd(COLORE_G);
-	    printf("\n [!] Il nemico lancia il %d dado (su %d disponibili) e si difende...\n", i+1, pNemico->dadiDifesa);
+	        printf("\n [!] Il nemico lancia il %d dado (su %d disponibili) e si difende... [PREMI INVIO]", i+1, pNemico->dadiDifesa);
             coloreCmd(COLORE_STD);
-            random = LANCIA_DADO();
-            switch (random) {
-            	case 0 ... 3:
-                	printf(" [*] Il nemico ha provato a difendersi, ma il dado ha deciso diversamente (è uscito %d)\n", random);
-                break;
-                
-                case 4 ... 5:
-                  	printf(" [*] Il nemico si è difeso con successo! (è uscito %d)\n", random);
-                    difesaTotale++;
-                break;
-                
-                case 6:
-                    printf(" [*] Il nemico ha difeso con un colpo critico! (è uscito %d)\n", random);
-                    difesaTotale += 2;
-                break;
-            }
+            getchar();
+            
+            dadiCombattimento(&difesaTotale);
         }
 
         danniNetti = (danniTotali > difesaTotale) ? (danniTotali - difesaTotale) : 0;
         if (danniNetti > 0) {
             coloreCmd(COLORE_V);
-            printf("\n [!] BRAVO! Hai colpito il nemico! Gli infliggi %u danni.\n", danniNetti);
+
+            printf("\n [!] BRAVO! I tuoi lanci ti hanno permesso di colpire il nemico! Gli infliggi %u ", danniNetti);
+            if(danniNetti == 1) printf("danno.\n");
+            else printf("danni.\n");
+
             if (danniNetti > pNemico->pVita) pNemico->pVita = 0; else pNemico->pVita -= danniNetti;
             coloreCmd(COLORE_STD);
         } else {
@@ -1624,24 +1621,11 @@ static void eseguiTurno(Giocatore* pGiocatore, bool attaccante) {
     	// attacca il nemico
         for (numero i = 0; i < pNemico->dadiAttacco; i++) {
             coloreCmd(COLORE_G);
-	        printf("\n [!] %s lancia il %d dado (su %d disponibili) e attacca...\n", nemicoToString(pNemico->tipo), i+1, pNemico->dadiAttacco);
+	        printf("\n [!] %s lancia il %d dado (su %d disponibili) e attacca... [PREMI INVIO]", nemicoToString(pNemico->tipo), i+1, pNemico->dadiAttacco);
             coloreCmd(COLORE_STD);
-            random = LANCIA_DADO();
-            switch (random) {
-            	case 0 ... 3:
-                	printf(" [*] %s ha provato ad attaccare, ma il dado ha deciso diversamente (è uscito %d)\n", nemicoToString(pNemico->tipo), random);
-                break;
-                
-                case 4 ... 5:
-                  	printf(" [*] %s ha attaccato con successo! (è uscito %d)\n", nemicoToString(pNemico->tipo), random);
-                    danniTotali++;
-                break;
-                
-                case 6:
-                    printf(" [*] %s ha sferrato un colpo critico! (è uscito %d)\n", nemicoToString(pNemico->tipo), random);
-                    danniTotali += 2;
-                break;
-            }
+            getchar();
+            
+            dadiCombattimento(&danniTotali);
         }
         
         for (numero i = 0; i < pGiocatore->dadiDifesa; i++) {
@@ -1649,29 +1633,19 @@ static void eseguiTurno(Giocatore* pGiocatore, bool attaccante) {
 	        printf("\n [!] Lancia il %d dado (su %d disponibili) e difenditi... [Premi INVIO]", i+1, pGiocatore->dadiDifesa);
             coloreCmd(COLORE_STD);
             getchar();
-            random = LANCIA_DADO();
-            switch (random) {
-            	case 0 ... 3:
-                	printf(" [*] Hai provato a difenderti, ma il dado ha deciso diversamente (è uscito %d)\n", random);
-                break;
-                
-                case 4 ... 5:
-                  	printf(" [*] Ti sei difeso con successo! (è uscito %d)\n", random);
-                    difesaTotale++;
-                break;
-                
-                case 6:
-                    printf(" [*] Ti sei difeso con un colpo critico! (è uscito %d)\n", random);
-                    difesaTotale += 2;
-                break;
-            }
+            
+            dadiCombattimento(&difesaTotale);
         }
         
         danniNetti = (danniTotali > difesaTotale) ? (danniTotali - difesaTotale) : 0;
         if (danniNetti > 0) {
         	coloreCmd(COLORE_R);
-            printf("\n [!] ATTENZIONE! Il nemico ti ha colpito! Subisci %u danni.\n", danniNetti);
-            if (danniNetti > pGiocatore->pVita) pGiocatore->pVita = 0; else pGiocatore->pVita -= danniNetti;
+            
+            printf("\n [!] ATTENZIONE! Il nemico ha realizzato ottimi lanci e ti ha colpito! Subisci %u ", danniNetti);
+            if(danniNetti == 1) printf("danno.\n");
+            else printf("danni.\n");
+        
+            diminuisciVita(pGiocatore, danniNetti);
             coloreCmd(COLORE_STD);
         } else {
             logSuccesso("\n [!] MAGNIFICO! Ti sei difeso troppo bene ;) NON subisci danni.");
@@ -1736,12 +1710,12 @@ static void combatti(Giocatore *pGiocatore) {
         SAFE_FREE(pGiocatore->posizione->nemico);
 
 		if (pGiocatore->pVita <= 0) {
-            logErrore(" [!] Sei stato sconfitto...");
+            logErrore("\n [!] Sei stato sconfitto...\n");
         } else if (tipoNemico == Jaffar) {
             vittoria(pGiocatore);
             jaffarSconfitto = true;
         } else {
-            logSuccesso(" [!] Hai sconfitto il nemico! Guadagni 1 punto vita.");
+            logSuccesso("\n [!] Hai sconfitto il nemico! Guadagni 1 punto vita.\n");
             aumentaVita(pGiocatore, 1);
         }
 
