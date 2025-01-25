@@ -144,7 +144,7 @@ typedef struct giocatore {
 	numero cercataSegreta;
 	bool inVita;
 	bool turnoPassato;
-	char azioniConcesse[9];
+	char azioniConcesse[10];
 } Giocatore;
 
 /*

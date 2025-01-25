@@ -45,11 +45,6 @@ const numero INIT_DADI = 2;
 
 const numero MIN_STANZE = 15;
 
-// Specifiche combattimento
-#define COLPO_RIUSCITO(punti) (punti >= 4)
-#define DIFESA_RIUSCITA(punti) (punti >= 4)
-#define CRITICO(punti) (punti == 6)
-
 const numero ATTACCO = 1;
 const numero ATTACCO_CRITICO = 2;
 const numero DIFESA = 1;
@@ -338,6 +333,22 @@ static const char* nemicoToString(TipoNemico nemico) {
 	}
 }
 
+/**
+* Restituisce la stringa corrispondente al tipo di tesoro passato come parametro
+* @param tesoro Tipo di tesoro da convertire in stringa
+*/
+static const char* tesoroToString(TipoTesoro tesoro) {
+	switch (tesoro) {
+		case nessunTesoro: return "nessun tesoro";
+		case verdeVeleno: return "verde veleno - perdi 1 PV";
+		case bluGuarigione: return "blu guarigione - ottieni 1 PV";
+		case rossoAumentaVita: return "rosso aumenta vita - la tua salute massima aumenta di 1, e i tuoi PV vengono ripristinati";
+        case spadaTagliente: return "spada tagliente (ottieni 1 dado d'attacco)";
+        case scudo: return "scudo - ottieni 1 dado di difesa";
+		default: return "tipo sconosciuto o non impostato";
+	}
+}
+
 /*
  *   DICHIARAZIONI DELLE FUNZIONI DI GIOCO (Per la documentazione si richiama la specifica definizione)
  */
@@ -376,6 +387,7 @@ static void avanza(Giocatore*, bool);
 static void torna(Giocatore*);
 static void stampaOpzioni(Giocatore*, char*);
 static void aiuto(Giocatore*);
+static void spoiler(Giocatore*);
 
 static void infoCombattimento(Giocatore*);
 static void eseguiTurno(Giocatore*, bool);
@@ -600,7 +612,7 @@ static void cercaStanzaSegreta(Giocatore* pGiocatore) {
         printf("\n");
         
         char scelta = ' ';
-        char opzioni[9];
+        char opzioni[10];
         do {
             printf("Seleziona una delle seguenti "); coloreCmd(COLORE_H); printf("azioni"); coloreCmd(COLORE_STD); printf(":\n");
             stampaOpzioni(pGiocatore, opzioni);
@@ -1339,6 +1351,11 @@ static void stampaOpzioni(Giocatore* pGiocatore, char* azioni) {
 			} else {
                 azioni[opz++] = 'P';
 			    printf(" ["); coloreCmd(COLORE_H); printf("P"); coloreCmd(COLORE_STD); printf("] Passa turno\n");
+                
+                if (pGiocatore->posizione != ultimaStanza) {
+					azioni[opz++] = 'Q';
+					printf(" ["); coloreCmd(COLORE_H); printf("Q"); coloreCmd(COLORE_STD); printf("] Spoiler\n");
+                }
             }
         }
 
@@ -1503,6 +1520,24 @@ static void aiuto(Giocatore *pGiocatore) {
             break;
         }
     }
+}
+
+/**
+* Stampa uno spoiler relativo alla stanza successiva, se disponibile
+* @param pGiocatore Giocatore a cui fornire lo spoiler
+*/
+static void spoiler(Giocatore *pGiocatore) {
+	if (IS_P_VALIDO(pGiocatore) && IS_P_VALIDO(pGiocatore->posizione) && IS_P_VALIDO(nextStanza(pGiocatore->posizione, false))) {
+		Stanza *stanza = nextStanza(pGiocatore->posizione, false);
+		logNota("SPOILER: ");
+		printf("La stanza successiva (%d di %d) è: %s\n", posStanza(stanza), numStanze(), stanzaToString(stanza->tipo));
+		printf("- E' presente un tesoro? %s (%s)\n", BOOL_TEXT(stanza->tesoro != nessunTesoro), tesoroToString(stanza->tesoro));
+		printf("- Il tesoro è stato raccolto? %s\n", BOOL_TEXT(stanza->tesoroRaccolto));
+		printf("- Trabocchetto: %s\n", trabocchettoToString(stanza->trabocchetto));
+        printf("- Nota che, solo addentrandoti nella stanza potrai scoprire se c'è un nemico o una stanza segreta ad aspettarti...\n");
+	} else {
+		logErrore("Impossibile ottenere uno spoiler in questo contesto (stanza non valida o non disponibile).");
+	}
 }
 
 /**
@@ -2022,7 +2057,7 @@ extern void gioca() {
                 giocatori[i]->avanzato = false;
 	            
 	            char azione = ' ';
-        		char opzioni[9];
+        		char opzioni[10];
 
                 // Ad ogni turno il giocatore può scegliere tra le seguenti azioni fino a quando non decide di passare il turno        
                 while (IS_P_VALIDO(giocatori[i]) && giocatori[i]->pVita >= MIN_PVITA && azione != 'P') {
@@ -2072,6 +2107,10 @@ extern void gioca() {
 
                             case 'H':
                                 aiuto(giocatori[i]);
+                            break;
+                            
+                            case 'Q':
+                                spoiler(giocatori[i]);
                             break;
                             
                             case 'X':
